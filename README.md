@@ -25,6 +25,8 @@ go run main.go 1     # jalankan materi tertentu (1-12)
 | 10 | [Interfaces as Contracts](10_interfaces/README.md) | `10_interfaces/interfaces.go` |
 | 11 | [Dependency Injection](11_dependency_injection/README.md) | `11_dependency_injection/di.go` |
 | 12 | [Practice 1: Simple API Fetch](practice_01_api_fetch/README.md) | `practice_01_api_fetch/api_fetch.go` |
+| 13 | [Challenge 1: Currency Conversion](challenge_1/README.md) | `challenge_1/main.go` |
+| 14 | [Challenge 2: Card Identification](challenge_2/README.md) | `challenge_2/main.go` |
 
 ## Project Structure
 
@@ -43,7 +45,9 @@ belajar-go/
 ├── 09_pointers/
 ├── 10_interfaces/
 ├── 11_dependency_injection/
-└── practice_01_api_fetch/
+├── practice_01_api_fetch/
+├── challenge_1/
+└── challenge_2/
 ```
 
 Setiap folder berisi file `.go` (kode) dan `README.md` (penjelasan).
