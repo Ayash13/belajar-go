@@ -12,7 +12,6 @@ import (
 type CardType struct {
 	Prefix []string
 	Length []int
-	Name   []string
 }
 
 // Map jenis kartu, prefix, panjang nomor kartu
