@@ -36,13 +36,13 @@ go run main.go 1     # jalankan materi tertentu (1-24)
 | 21 | [HTTP Methods](21_http_methods/README.md) | `21_http_methods/httpmethods.go` |
 | 22 | [Status Codes](22_status_codes/README.md) | `22_status_codes/statuscodes.go` |
 | 23 | [Middleware Concepts](23_middleware/README.md) | `23_middleware/middleware.go` |
-| 24 | [Practice 1: Simple API Fetch](practice_01_api_fetch/README.md) | `practice_01_api_fetch/api_fetch.go` |
 
-## Practice Projects (Standalone)
+## Practice Projects
 
 | No | Topik | Folder |
 |----|-------|--------|
-| P2 | [Practice 2: PostgreSQL CRUD API](practice_02_postgres_crud/README.md) | `practice_02_postgres_crud/` |
+| P1 | [Practice 1: Simple API Fetch (Integrated)](practice_01_api_fetch/README.md) | `practice_01_api_fetch/` |
+| P2 | [Practice 2: PostgreSQL CRUD API (Standalone)](practice_02_postgres_crud/README.md) | `practice_02_postgres_crud/` |
 
 ## Challenges
 
