@@ -1,10 +1,8 @@
-module belajar-go
+module practice_02_postgres_crud
 
 go 1.26.1
 
 require (
-	github.com/jmoiron/sqlx v1.4.0
-	github.com/lib/pq v1.11.2
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.31.1
 )

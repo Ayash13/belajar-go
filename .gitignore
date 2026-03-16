@@ -1,0 +1,14 @@
+# Compiled binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+practice_02_postgres_crud/practice_02_postgres_crud
+
+# Test binary
+*.test
+
+# Go workspace
+go.work
+go.work.sum
