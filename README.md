@@ -43,6 +43,7 @@ go run main.go 1     # jalankan materi tertentu (1-24)
 |----|-------|--------|
 | P1 | [Practice 1: Simple API Fetch (Integrated)](practice_01_api_fetch/README.md) | `practice_01_api_fetch/` |
 | P2 | [Practice 2: PostgreSQL CRUD API (Standalone)](practice_02_postgres_crud/README.md) | `practice_02_postgres_crud/` |
+| P3 | [Practice 3: Net/HTTP with Separation of Concerns](practice_03_nethttp_soc/README.md) | `practice_03_nethttp_soc/` |
 
 ## Challenges
 
@@ -84,6 +85,7 @@ belajar-go/
 ├── 23_middleware/
 ├── practice_01_api_fetch/
 ├── practice_02_postgres_crud/  ← standalone project
+├── practice_03_nethttp_soc/    ← net/http SoC project
 ├── challenge_1/
 └── challenge_2/
 ```
