@@ -51,6 +51,7 @@ go run main.go 1     # jalankan materi tertentu (1-24)
 |----|-------|--------|
 | C1 | [Challenge 1: Currency Conversion](challenge_1/README.md) | `challenge_1/` |
 | C2 | [Challenge 2: Card Identification](challenge_2/README.md) | `challenge_2/` |
+| C3 | [Challenge 3: REST API Bank (SOC)](challenge_3/README.md) | `challenge_3/` |
 
 ## Project Structure
 
@@ -87,7 +88,8 @@ belajar-go/
 ├── practice_02_postgres_crud/  ← standalone project
 ├── practice_03_nethttp_soc/    ← net/http SoC project
 ├── challenge_1/
-└── challenge_2/
+├── challenge_2/
+└── challenge_3/                ← REST API Bank (SOC)
 ```
 
 Setiap folder berisi file `.go` (kode) dan `README.md` (penjelasan).
