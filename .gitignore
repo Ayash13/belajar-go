@@ -12,3 +12,26 @@ practice_02_postgres_crud/practice_02_postgres_crud
 # Go workspace
 go.work
 go.work.sum
+
+# Environment variables (keep .env.example)
+.env
+.env.local
+.env.*.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+
+# Temporary files
+tmp/
+*.tmp
