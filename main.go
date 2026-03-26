@@ -112,6 +112,11 @@ func printUsage() {
 	fmt.Println("  13 - Exported           26 - Synchronization")
 	fmt.Println("                          27 - Practice 1: API Fetch")
 	fmt.Println("")
-	fmt.Println("  Practice 2: PostgreSQL CRUD (separate project)")
+	fmt.Println("  Standalone Projects:")
 	fmt.Println("    cd practice_02_postgres_crud && go run main.go")
+	fmt.Println("    cd practice_03_nethttp_soc && go run main.go")
+	fmt.Println("    cd challenge_1 && go run main.go")
+	fmt.Println("    cd challenge_2 && go run main.go")
+	fmt.Println("    cd challenge_3 && go run main.go")
+	fmt.Println("    cd challenge_4 && go run .")
 }
