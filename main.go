@@ -27,6 +27,9 @@ import (
 	"belajar-go/21_http_methods"
 	"belajar-go/22_status_codes"
 	"belajar-go/23_middleware"
+	"belajar-go/24_concurrency"
+	"belajar-go/25_goroutines"
+	"belajar-go/26_synchronization"
 	"belajar-go/practice_01_api_fetch"
 )
 
@@ -57,10 +60,13 @@ var modules = map[string]struct {
 	"21": {"HTTP Methods", httpmethods.Run},
 	"22": {"Status Codes", statuscodes.Run},
 	"23": {"Middleware Concepts", middleware.Run},
-	"24": {"Practice 1: Simple API Fetch", practice_01_api_fetch.Run},
+	"24": {"Concurrency vs Parallelism", concurrency.Run},
+	"25": {"Go Routines", goroutines.Run},
+	"26": {"Synchronization", synchronization.Run},
+	"27": {"Practice 1: Simple API Fetch", practice_01_api_fetch.Run},
 }
 
-const totalModules = 24
+const totalModules = 27
 
 func main() {
 	if len(os.Args) > 1 {
@@ -91,18 +97,20 @@ func main() {
 
 func printUsage() {
 	fmt.Printf("Usage: go run main.go [1-%d]\n", totalModules)
-	fmt.Println("  1  - Variables          13 - Exported vs Unexported")
-	fmt.Println("  2  - Constants          14 - go mod tidy")
-	fmt.Println("  3  - Functions          15 - Separation of Concerns")
-	fmt.Println("  4  - Conditions         16 - Error Wrapping")
-	fmt.Println("  5  - Looping            17 - Database Integration")
-	fmt.Println("  6  - Errors             18 - Basic HTTP Server")
-	fmt.Println("  7  - Structs            19 - Handlers")
-	fmt.Println("  8  - Methods            20 - JSON Encoding/Decoding")
-	fmt.Println("  9  - Pointers           21 - HTTP Methods")
-	fmt.Println("  10 - Interfaces         22 - Status Codes")
-	fmt.Println("  11 - Dependency Inject  23 - Middleware")
-	fmt.Println("  12 - Package System     24 - Practice 1: API Fetch")
+	fmt.Println("  1  - Variables          14 - go mod tidy")
+	fmt.Println("  2  - Constants          15 - Separation of Concerns")
+	fmt.Println("  3  - Functions          16 - Error Wrapping")
+	fmt.Println("  4  - Conditions         17 - Database Integration")
+	fmt.Println("  5  - Looping            18 - Basic HTTP Server")
+	fmt.Println("  6  - Errors             19 - Handlers")
+	fmt.Println("  7  - Structs            20 - JSON Encoding/Decoding")
+	fmt.Println("  8  - Methods            21 - HTTP Methods")
+	fmt.Println("  9  - Pointers           22 - Status Codes")
+	fmt.Println("  10 - Interfaces         23 - Middleware")
+	fmt.Println("  11 - Dependency Inject  24 - Concurrency vs Parallelism")
+	fmt.Println("  12 - Package System     25 - Go Routines")
+	fmt.Println("  13 - Exported           26 - Synchronization")
+	fmt.Println("                          27 - Practice 1: API Fetch")
 	fmt.Println("")
 	fmt.Println("  Practice 2: PostgreSQL CRUD (separate project)")
 	fmt.Println("    cd practice_02_postgres_crud && go run main.go")

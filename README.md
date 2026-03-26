@@ -6,7 +6,7 @@ Materi dasar Golang.
 
 ```bash
 go run main.go       # jalankan semua materi
-go run main.go 1     # jalankan materi tertentu (1-24)
+go run main.go 1     # jalankan materi tertentu (1-27)
 ```
 
 ## Daftar Materi
@@ -36,6 +36,9 @@ go run main.go 1     # jalankan materi tertentu (1-24)
 | 21 | [HTTP Methods](21_http_methods/README.md) | `21_http_methods/httpmethods.go` |
 | 22 | [Status Codes](22_status_codes/README.md) | `22_status_codes/statuscodes.go` |
 | 23 | [Middleware Concepts](23_middleware/README.md) | `23_middleware/middleware.go` |
+| 24 | [Concurrency vs Parallelism](24_concurrency/README.md) | `24_concurrency/concurrency.go` |
+| 25 | [Go Routines](25_goroutines/README.md) | `25_goroutines/goroutines.go` |
+| 26 | [Synchronization](26_synchronization/README.md) | `26_synchronization/synchronization.go` |
 
 ## Practice Projects
 
@@ -52,6 +55,7 @@ go run main.go 1     # jalankan materi tertentu (1-24)
 | C1 | [Challenge 1: Currency Conversion](challenge_1/README.md) | `challenge_1/` |
 | C2 | [Challenge 2: Card Identification](challenge_2/README.md) | `challenge_2/` |
 | C3 | [Challenge 3: REST API Bank (SOC)](challenge_3/README.md) | `challenge_3/` |
+| C4 | [Challenge 4: Banking Transaction Processing](challenge_4/README.md) | `challenge_4/` |
 
 ## Project Structure
 
@@ -84,12 +88,16 @@ belajar-go/
 ├── 21_http_methods/
 ├── 22_status_codes/
 ├── 23_middleware/
+├── 24_concurrency/
+├── 25_goroutines/
+├── 26_synchronization/
 ├── practice_01_api_fetch/
 ├── practice_02_postgres_crud/  ← standalone project
 ├── practice_03_nethttp_soc/    ← net/http SoC project
 ├── challenge_1/
 ├── challenge_2/
-└── challenge_3/                ← REST API Bank (SOC)
+├── challenge_3/                ← REST API Bank (SOC)
+└── challenge_4/                ← Banking Transaction Processing
 ```
 
 Setiap folder berisi file `.go` (kode) dan `README.md` (penjelasan).
