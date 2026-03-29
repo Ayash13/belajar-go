@@ -39,6 +39,7 @@ go run main.go 1     # jalankan materi tertentu (1-27)
 | 24 | [Concurrency vs Parallelism](24_concurrency/README.md) | `24_concurrency/concurrency.go` |
 | 25 | [Go Routines](25_goroutines/README.md) | `25_goroutines/goroutines.go` |
 | 26 | [Synchronization](26_synchronization/README.md) | `26_synchronization/synchronization.go` |
+| 27 | [Unit Testing](27_unit_testing/README.md) | - |
 
 ## Practice Projects
 
@@ -47,6 +48,7 @@ go run main.go 1     # jalankan materi tertentu (1-27)
 | P1 | [Practice 1: Simple API Fetch (Integrated)](practice_01_api_fetch/README.md) | `practice_01_api_fetch/` |
 | P2 | [Practice 2: PostgreSQL CRUD API (Standalone)](practice_02_postgres_crud/README.md) | `practice_02_postgres_crud/` |
 | P3 | [Practice 3: Net/HTTP with Separation of Concerns](practice_03_nethttp_soc/README.md) | `practice_03_nethttp_soc/` |
+| P4 | [Practice 4: Unit Testing Practice 3](practice_04_unit_testing/README.md) | `practice_04_unit_testing/` |
 
 ## Challenges
 
@@ -91,9 +93,11 @@ belajar-go/
 ├── 24_concurrency/
 ├── 25_goroutines/
 ├── 26_synchronization/
+├── 27_unit_testing/
 ├── practice_01_api_fetch/
 ├── practice_02_postgres_crud/  ← standalone project
 ├── practice_03_nethttp_soc/    ← net/http SoC project
+├── practice_04_unit_testing/   ← unit tests for practice 3
 ├── challenge_1/
 ├── challenge_2/
 ├── challenge_3/                ← REST API Bank (SOC)
