@@ -71,6 +71,20 @@ DB_SSLMODE=disable
 
 ### 3. Jalankan Aplikasi
 
+Terdapat dua cara untuk menjalankan aplikasi ini: secara manual atau menggunakan Docker.
+
+#### Menggunakan Docker Compose (Direkomendasikan)
+
+Pastikan Docker telah terinstall di sistem Anda, jalankan perintah berikut:
+
+```bash
+cd challenge_3
+docker-compose up -d --build
+```
+> Perintah ini akan mensetup database `bank` di dalam container `postgres` secara otomatis bersamaan dengan menjalankan server HTTP.
+
+#### Menjalankan Secara Manual
+
 ```bash
 cd challenge_3
 go run .
@@ -332,6 +346,7 @@ GET /accounts/{id}/transactions
 - **sqlx** — SQL query builder
 - **godotenv** — Environment variable loader
 - **lib/pq** — PostgreSQL driver
+- **Docker & Docker Compose** — Containerization
 
 ## 📌 Fitur
 
@@ -343,3 +358,4 @@ GET /accounts/{id}/transactions
 - ✅ Custom 404 handler
 - ✅ Validasi input request
 - ✅ Error handling yang konsisten
+- ✅ Docker Containerization
