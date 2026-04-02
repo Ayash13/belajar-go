@@ -6,29 +6,84 @@ REST API untuk manajemen rekening bank dan transaksi transfer, dibangun dengan p
 
 ```
 challenge_3/
-├── main.go                  # Entry point, dependency injection
-├── database/
-│   └── db.go                # Koneksi PostgreSQL + auto-migrate tabel
-├── entity/
-│   ├── account.go           # Struct Account
-│   └── transaction.go       # Struct Transaction
-├── dto/
-│   ├── base_response.go     # Struct response standar
-│   ├── account_dto.go       # Request/Response untuk Account
-│   └── transaction_dto.go   # Request/Response untuk Transaction
-├── repository/
-│   ├── account_repository.go     # CRUD database Account
-│   └── transaction_repository.go # CRUD database Transaction
-├── service/
-│   └── account_service.go   # Business logic
-├── handler/
-│   ├── account_handler.go   # HTTP handler (controller)
-│   └── account_route.go     # Route mapping
-├── server/
-│   ├── helper.go            # Helper untuk route pattern
-│   └── http.go              # Middleware (Content-Type, 404)
-└── .env                     # Environment variables
+├── main.go                     # Entry point, Dependency Injection & Middleware Wiring
+├── .env                        # Konfigurasi Environment (DB, Redis, etc.)
+├── docker-compose.yml          # Orkestrasi Stack (App, DB, Redis, Grafana Stack)
+├── Dockerfile                  # Containerisasi Aplikasi Go
+│
+├── database/                   # Layer Koneksi Data
+│   ├── db.go                   # Koneksi & Auto-Migrate PostgreSQL
+│   └── redis.go                # Koneksi Redis Client
+│
+├── entity/                     # Domain Models (Database Schema)
+│   ├── account.go              # Model Account
+│   └── transaction.go          # Model Transaction
+│
+├── dto/                        # Data Transfer Object (API Contracts)
+│   ├── base_response.go        # Standard Response Format
+│   ├── account_dto.go          # request/Response DTO Account
+│   └── transaction_dto.go      # Request/Response DTO Transaction
+│
+├── repository/                 # Layer Akses Data (SQL Queries)
+│   ├── account_repository.go    # Query CRUD Account
+│   └── transaction_repository.go # Query Transaksi & Transfer Logic
+│
+├── service/                    # Layer Bisnis Logic
+│   └── account_service.go      # Validasi saldo, transfer validation, logic bisnis
+│
+├── handler/                    # Layer Transport (HTTP)
+│   ├── account_handler.go      # Controller/Handler Logic
+│   ├── account_route.go        # Mapping HTTP Endpoints
+│   └── account_handler_test.go # Unit Test untuk API Layer
+│
+├── middleware/                 # Cross-Cutting Concerns
+│   ├── core.go                 # Root Middleware (Content-Type, Chain Composer)
+│   ├── tracing.go              # OpenTelemetry Tracing instrumentation
+│   ├── metrics.go              # Prometheus Metrics recording
+│   ├── request_logger.go       # Structured Logging (Zap)
+│   ├── rate_limit.go           # Redis-based Rate Limiting (Fixed Window)
+│   ├── idempotency.go          # Redis-based Idempotency check
+│   └── cache.go                # Redis Caching logic untuk GET requests
+│
+├── telemetry/                  # Konfigurasi Observability
+│   ├── tracer.go               # Setup OpenTelemetry (Tempo Exporter)
+│   └── metrics.go              # Setup Prometheus Metrics (Counter, Histogram)
+│
+├── logger/                     # Logging Configuration
+│   └── logger.go               # Zap Logger Initialization (Structured Logging)
+│
+├── config/                     # Configuration Management
+│   ├── prometheus.yaml         # Scrape Job Metrics
+│   ├── tempo.yaml              # Backend Traces Config
+│   ├── promtail.yaml           # Log Collector Config
+│   └── grafana-datasources.yaml # Auto-provisioning Grafana
+│
+└── server/                     # HTTP Server Utilities
+    └── helper.go               # Route & Pattern matching helpers
 ```
+
+## 🛡️ Middleware Chain Order
+
+Setiap request masuk melalui rantai (chain) middleware dengan urutan berikut:
+
+1.  **OpenTelemetry**: Inisialisasi span dan injector context.
+2.  **Prometheus Metrics**: Mulai timer untuk record latensi dan hitung total request.
+3.  **Request Logger**: Mencatat log masuk (Method, Path, IP).
+4.  **Content-Type JSON**: Memaksa header `application/json`.
+5.  **Rate Limiter**: Cek IP klien apakah melebihi batas quota (Redis).
+6.  **Idempotency**: Cek header `Idempotency-Key` untuk mencegah transaksi ganda (Redis).
+7.  **Timeout**: Membatasi eksekusi request (misal: 10 detik).
+8.  **Handler/Cache**: Jika GET, cek cache di Redis. Jika tidak ada, eksekusi service.
+
+## 📊 Observability (Three Pillars)
+
+Sistem ini menerapkan **Full Stack Observability** yang dapat dipantau melalui Grafana (`localhost:3000`):
+
+| Pillar      | Provider        | Tujuan                                               | Dashboard Path       |
+| :---------- | :-------------- | :--------------------------------------------------- | :------------------- |
+| **Metrics** | Prometheus      | Pantau throughput (RPS), Error Rate, dan Latensi.    | Explore → Prometheus |
+| **Logs**    | Loki + Promtail | Analisis log error terstruktur (JSON).               | Explore → Loki       |
+| **Traces**  | OpenTelemetry   | Visualisasi alur request antar komponen (SDK level). | Explore → Tempo      |
 
 ## 🏗️ Arsitektur
 
@@ -38,13 +93,13 @@ Request → Handler → Service → Repository → Database
                        DTO ↔ Entity
 ```
 
-| Layer          | Tanggung Jawab                                     |
-|----------------|-----------------------------------------------------|
+| Layer          | Tanggung Jawab                                        |
+| -------------- | ----------------------------------------------------- |
 | **Handler**    | Menerima HTTP request, validasi input, kirim response |
-| **Service**    | Business logic (validasi saldo, transfer, dll)       |
-| **Repository** | Akses database (query SQL)                           |
-| **Entity**     | Representasi tabel database                          |
-| **DTO**        | Struktur data request/response API                   |
+| **Service**    | Business logic (validasi saldo, transfer, dll)        |
+| **Repository** | Akses database (query SQL)                            |
+| **Entity**     | Representasi tabel database                           |
+| **DTO**        | Struktur data request/response API                    |
 
 ## ⚙️ Setup
 
@@ -81,6 +136,7 @@ Pastikan Docker telah terinstall di sistem Anda, jalankan perintah berikut:
 cd challenge_3
 docker-compose up -d --build
 ```
+
 > Perintah ini akan mensetup database `bank` di dalam container `postgres` secara otomatis bersamaan dengan menjalankan server HTTP.
 
 #### Menjalankan Secara Manual
@@ -96,23 +152,23 @@ Server berjalan di `http://localhost:8080`
 
 ### accounts
 
-| Column         | Type           | Constraint                    |
-|----------------|----------------|-------------------------------|
-| id             | UUID           | PRIMARY KEY, auto-generated   |
-| account_holder | VARCHAR(255)   | NOT NULL                      |
-| balance        | NUMERIC(15,2)  | NOT NULL, DEFAULT 0           |
-| created_at     | TIMESTAMP      | NOT NULL, DEFAULT NOW()       |
-| updated_at     | TIMESTAMP      | NOT NULL, DEFAULT NOW()       |
+| Column         | Type          | Constraint                  |
+| -------------- | ------------- | --------------------------- |
+| id             | UUID          | PRIMARY KEY, auto-generated |
+| account_holder | VARCHAR(255)  | NOT NULL                    |
+| balance        | NUMERIC(15,2) | NOT NULL, DEFAULT 0         |
+| created_at     | TIMESTAMP     | NOT NULL, DEFAULT NOW()     |
+| updated_at     | TIMESTAMP     | NOT NULL, DEFAULT NOW()     |
 
 ### transactions
 
-| Column          | Type           | Constraint                           |
-|-----------------|----------------|--------------------------------------|
-| id              | UUID           | PRIMARY KEY, auto-generated          |
-| from_account_id | UUID           | NOT NULL, FK → accounts(id)          |
-| to_account_id   | UUID           | NOT NULL, FK → accounts(id)          |
-| amount          | NUMERIC(15,2)  | NOT NULL                             |
-| created_at      | TIMESTAMP      | NOT NULL, DEFAULT NOW()              |
+| Column          | Type          | Constraint                  |
+| --------------- | ------------- | --------------------------- |
+| id              | UUID          | PRIMARY KEY, auto-generated |
+| from_account_id | UUID          | NOT NULL, FK → accounts(id) |
+| to_account_id   | UUID          | NOT NULL, FK → accounts(id) |
+| amount          | NUMERIC(15,2) | NOT NULL                    |
+| created_at      | TIMESTAMP     | NOT NULL, DEFAULT NOW()     |
 
 ## 🔌 API Endpoints
 
@@ -125,26 +181,28 @@ POST /accounts
 ```
 
 **Request Body:**
+
 ```json
 {
-    "account_holder": "John Doe",
-    "balance": 50000
+  "account_holder": "John Doe",
+  "balance": 50000
 }
 ```
 
 **Response (201):**
+
 ```json
 {
-    "code": 201,
-    "status": "success",
-    "message": "Account created successfully",
-    "data": {
-        "id": "uuid-here",
-        "account_holder": "John Doe",
-        "balance": 50000,
-        "created_at": "2026-03-25T11:05:43.918645Z",
-        "updated_at": "2026-03-25T11:05:43.918645Z"
-    }
+  "code": 201,
+  "status": "success",
+  "message": "Account created successfully",
+  "data": {
+    "id": "uuid-here",
+    "account_holder": "John Doe",
+    "balance": 50000,
+    "created_at": "2026-03-25T11:05:43.918645Z",
+    "updated_at": "2026-03-25T11:05:43.918645Z"
+  }
 }
 ```
 
@@ -157,19 +215,20 @@ GET /accounts
 ```
 
 **Response (200):**
+
 ```json
 {
-    "code": 200,
-    "status": "success",
-    "data": [
-        {
-            "id": "uuid-1",
-            "account_holder": "John Doe",
-            "balance": 50000,
-            "created_at": "...",
-            "updated_at": "..."
-        }
-    ]
+  "code": 200,
+  "status": "success",
+  "data": [
+    {
+      "id": "uuid-1",
+      "account_holder": "John Doe",
+      "balance": 50000,
+      "created_at": "...",
+      "updated_at": "..."
+    }
+  ]
 }
 ```
 
@@ -182,26 +241,28 @@ GET /accounts/{id}
 ```
 
 **Response (200):**
+
 ```json
 {
-    "code": 200,
-    "status": "success",
-    "data": {
-        "id": "uuid-here",
-        "account_holder": "John Doe",
-        "balance": 50000,
-        "created_at": "...",
-        "updated_at": "..."
-    }
+  "code": 200,
+  "status": "success",
+  "data": {
+    "id": "uuid-here",
+    "account_holder": "John Doe",
+    "balance": 50000,
+    "created_at": "...",
+    "updated_at": "..."
+  }
 }
 ```
 
 **Response (404):**
+
 ```json
 {
-    "code": 404,
-    "status": "error",
-    "message": "account not found"
+  "code": 404,
+  "status": "error",
+  "message": "account not found"
 }
 ```
 
@@ -214,26 +275,28 @@ PUT /accounts/{id}
 ```
 
 **Request Body:**
+
 ```json
 {
-    "account_holder": "John Updated",
-    "balance": 75000
+  "account_holder": "John Updated",
+  "balance": 75000
 }
 ```
 
 **Response (200):**
+
 ```json
 {
-    "code": 200,
-    "status": "success",
-    "message": "Account updated successfully",
-    "data": {
-        "id": "uuid-here",
-        "account_holder": "John Updated",
-        "balance": 75000,
-        "created_at": "...",
-        "updated_at": "..."
-    }
+  "code": 200,
+  "status": "success",
+  "message": "Account updated successfully",
+  "data": {
+    "id": "uuid-here",
+    "account_holder": "John Updated",
+    "balance": 75000,
+    "created_at": "...",
+    "updated_at": "..."
+  }
 }
 ```
 
@@ -246,11 +309,12 @@ DELETE /accounts/{id}
 ```
 
 **Response (200):**
+
 ```json
 {
-    "code": 200,
-    "status": "success",
-    "message": "Account deleted successfully"
+  "code": 200,
+  "status": "success",
+  "message": "Account deleted successfully"
 }
 ```
 
@@ -265,52 +329,61 @@ POST /transfer
 ```
 
 **Request Body:**
+
 ```json
 {
-    "from_account_id": "uuid-sender",
-    "to_account_id": "uuid-receiver",
-    "amount": 10000
+  "from_account_id": "uuid-sender",
+  "to_account_id": "uuid-receiver",
+  "amount": 10000
 }
 ```
 
+**HTTP Headers:**
+
+```
+Idempotency-Key: "trx-unique-id-991" (Opsional, untuk mencegah duplikasi transfer)
+```
+
 **Response (200):**
+
 ```json
 {
-    "code": 200,
-    "status": "success",
-    "data": {
-        "message": "Transfer successful",
-        "transaction": {
-            "id": "uuid-transaction",
-            "from_account_id": "uuid-sender",
-            "to_account_id": "uuid-receiver",
-            "amount": 10000,
-            "created_at": "..."
-        },
-        "from_account": {
-            "id": "uuid-sender",
-            "account_holder": "John Doe",
-            "balance": 40000,
-            "created_at": "...",
-            "updated_at": "..."
-        },
-        "to_account": {
-            "id": "uuid-receiver",
-            "account_holder": "Jane Doe",
-            "balance": 40000,
-            "created_at": "...",
-            "updated_at": "..."
-        }
+  "code": 200,
+  "status": "success",
+  "data": {
+    "message": "Transfer successful",
+    "transaction": {
+      "id": "uuid-transaction",
+      "from_account_id": "uuid-sender",
+      "to_account_id": "uuid-receiver",
+      "amount": 10000,
+      "created_at": "..."
+    },
+    "from_account": {
+      "id": "uuid-sender",
+      "account_holder": "John Doe",
+      "balance": 40000,
+      "created_at": "...",
+      "updated_at": "..."
+    },
+    "to_account": {
+      "id": "uuid-receiver",
+      "account_holder": "Jane Doe",
+      "balance": 40000,
+      "created_at": "...",
+      "updated_at": "..."
     }
+  }
 }
 ```
 
 **Error — Saldo tidak cukup (400):**
+
 ```json
 {
-    "code": 400,
-    "status": "error",
-    "message": "insufficient balance for transfer"
+  "code": 400,
+  "status": "error",
+  "message": "insufficient balance for transfer"
 }
 ```
 
@@ -323,29 +396,72 @@ GET /accounts/{id}/transactions
 ```
 
 **Response (200):**
+
 ```json
 {
-    "code": 200,
-    "status": "success",
-    "data": [
-        {
-            "id": "uuid-transaction",
-            "from_account_id": "uuid-sender",
-            "to_account_id": "uuid-receiver",
-            "amount": 10000,
-            "created_at": "..."
-        }
-    ]
+  "code": 200,
+  "status": "success",
+  "data": [
+    {
+      "id": "uuid-transaction",
+      "from_account_id": "uuid-sender",
+      "to_account_id": "uuid-receiver",
+      "amount": 10000,
+      "created_at": "..."
+    }
+  ]
 }
 ```
+
+## 📊 Observability (Three Pillars)
+
+Proyek ini menerapkan konsep **Three Pillars of Observability** agar sistem dapat dipantau secara menyeluruh.
+
+### 1. Metrics (Prometheus)
+
+Digunakan untuk menjawab pertanyaan: _"Seberapa sibuk server kita dan berapa lama waktu responnya?"_
+
+- **Path**: `GET /metrics`
+- **Metrik Utama**: `bank_api_http_requests_total` dan `bank_api_http_request_duration_seconds`.
+
+### 2. Logs (Loki + Promtail)
+
+Digunakan untuk menjawab pertanyaan: _"Apa yang sebenarnya terjadi saat error muncul?"_
+
+- **Teknologi**: Zap Logger (JSON format) dikumpulkan secara otomatis oleh Promtail dan dikirim ke Loki.
+- **Trace ID**: Setiap log menyertakan `trace_id` sehingga Anda bisa mencocokkan log dengan trace tertentu.
+
+### 3. Traces (OpenTelemetry + Tempo)
+
+Digunakan untuk menjawab pertanyaan: _"Dimana bottleneck pemrosesan request ini?"_
+
+- **Teknologi**: OpenTelemetry SDK melakukan instrumen pada level Handler, Service, dan Database.
+- **Visualisasi**: Traces dikirim ke Tempo dan divisualisasikan dalam bentuk Gantt Chart di Grafana.
+
+## 📈 Monitoring Stack (Grafana)
+
+Akses dashboard monitoring melalui:
+
+- **URL**: `http://localhost:3000`
+- **Username**: `admin`
+- **Password**: `admin`
+
+### Data Sources
+
+1. **Prometheus**: Dashboard untuk grafik metrik.
+2. **Loki**: Explore logs dengan query `{container="challenge_3-app-1"}`.
+3. **Tempo**: Search traces berdasarkan `trace_id` atau Service Graph.
 
 ## 🛠️ Tech Stack
 
 - **Go** (net/http + Go 1.22 enhanced routing)
 - **PostgreSQL** — Database
-- **sqlx** — SQL query builder
-- **godotenv** — Environment variable loader
-- **lib/pq** — PostgreSQL driver
+- **Redis (go-redis/v9)** — Caching & Distributed Locks
+- **OpenTelemetry** — Tracing SDK
+- **Prometheus** — Metrics SDK
+- **Loki & Promtail** — Log Management
+- **Grafana** — Unified Visualization
+- **Tempo** — Trace Storage
 - **Docker & Docker Compose** — Containerization
 
 ## 📌 Fitur
@@ -359,3 +475,7 @@ GET /accounts/{id}/transactions
 - ✅ Validasi input request
 - ✅ Error handling yang konsisten
 - ✅ Docker Containerization
+- ✅ **Redis Caching**: Menyimpan respons akun dengan TTL 5 Menit di Memory
+- ✅ **Redis Idempotency**: Mencegah request transfer ganda (Distributed Lock SetNX)
+- ✅ **Global Timeout**: Membatasi maksimal waktu eksekusi API selama 10 Detik
+- ✅ **Redis Rate Limiting**: Membatasi IP klien mengirim lebih dari 10 request dalam 5 detik

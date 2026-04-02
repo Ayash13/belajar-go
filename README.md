@@ -40,6 +40,17 @@ go run main.go 1     # jalankan materi tertentu (1-27)
 | 25 | [Go Routines](25_goroutines/README.md) | `25_goroutines/goroutines.go` |
 | 26 | [Synchronization](26_synchronization/README.md) | `26_synchronization/synchronization.go` |
 | 27 | [Unit Testing](27_unit_testing/README.md) | - |
+| 28 | [Docker & Docker Compose](28_docker/README.md) | `28_docker/` |
+| 29 | [Caching Fundamentals](29_caching_fundamentals/README.md) | `29_caching_fundamentals/main.go` |
+| 30 | [Redis as In-Memory Store](30_redis_in_memory/README.md) | `30_redis_in_memory/main.go` |
+| 31 | [TTL (Time to Live)](31_ttl/README.md) | `31_ttl/main.go` |
+| 32 | [Idempotency Key](32_idempotency_key/README.md) | `32_idempotency_key/main.go` |
+| 33 | [Observability Fundamentals](33_observability_fundamentals/README.md) | `33_observability_fundamentals/main.go` |
+| 34 | [Structured Logging (Zap)](34_zap_structured_logging/README.md) | `34_zap_structured_logging/main.go` |
+| 35 | [Prometheus Metrics](35_prometheus_metrics/README.md) | `35_prometheus_metrics/main.go` |
+| 36 | [OpenTelemetry Tracing](36_opentelemetry_tracing/README.md) | `36_opentelemetry_tracing/main.go` |
+| 37 | [Grafana Stack (Loki+Tempo+Prometheus)](37_grafana_stack/README.md) | `37_grafana_stack/main.go` |
+| 38 | [Load Testing with k6](38_load_testing_k6/README.md) | `38_load_testing_k6/scripts/` |
 
 ## Practice Projects
 
@@ -94,14 +105,25 @@ belajar-go/
 ├── 25_goroutines/
 ├── 26_synchronization/
 ├── 27_unit_testing/
+├── 28_docker/
+├── 29_caching_fundamentals/
+├── 30_redis_in_memory/
+├── 31_ttl/
+├── 32_idempotency_key/
+├── 33_observability_fundamentals/
+├── 34_zap_structured_logging/
+├── 35_prometheus_metrics/
+├── 36_opentelemetry_tracing/
+├── 37_grafana_stack/            ← Loki + Tempo + Prometheus + Grafana
+├── 38_load_testing_k6/          ← k6 load testing scripts
 ├── practice_01_api_fetch/
-├── practice_02_postgres_crud/  ← standalone project
-├── practice_03_nethttp_soc/    ← net/http SoC project
-├── practice_04_unit_testing/   ← unit tests for practice 3
+├── practice_02_postgres_crud/
+├── practice_03_nethttp_soc/
+├── practice_04_unit_testing/
 ├── challenge_1/
 ├── challenge_2/
-├── challenge_3/                ← REST API Bank (SOC)
-└── challenge_4/                ← Banking Transaction Processing
+├── challenge_3/
+└── challenge_4/
 ```
 
 Setiap folder berisi file `.go` (kode) dan `README.md` (penjelasan).

@@ -1,19 +1,19 @@
 package database
 
 import (
+	"belajar-go/challenge_3/logger"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
+	"go.uber.org/zap"
 )
 
 func ConnectDB() *sqlx.DB {
-	err := godotenv.Load()
-	if err != nil {
-		log.Println("Error loading .env file, falling back to environment variables")
+	if err := godotenv.Load(); err != nil {
+		logger.Log.Warn("Error loading .env file, falling back to environment variables")
 	}
 
 	host := os.Getenv("DB_HOST")
@@ -24,7 +24,7 @@ func ConnectDB() *sqlx.DB {
 	sslmode := os.Getenv("DB_SSLMODE")
 
 	if host == "" || user == "" || dbname == "" {
-		log.Fatal("Database environment variables are missing")
+		logger.Log.Fatal("Database environment variables are missing")
 	}
 
 	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
@@ -32,7 +32,7 @@ func ConnectDB() *sqlx.DB {
 
 	db, err := sqlx.Connect("postgres", dsn)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		logger.Log.Fatal("Failed to connect to database", zap.Error(err))
 	}
 
 	createTableQuery := `
@@ -54,10 +54,14 @@ func ConnectDB() *sqlx.DB {
 		created_at TIMESTAMP NOT NULL DEFAULT NOW()
 	);
 	`
-	_, err = db.Exec(createTableQuery)
-	if err != nil {
-		log.Fatalf("Failed to create tables: %v", err)
+	if _, err = db.Exec(createTableQuery); err != nil {
+		logger.Log.Fatal("Failed to create tables", zap.Error(err))
 	}
+
+	logger.Log.Info("Database connected successfully",
+		zap.String("host", host),
+		zap.String("dbname", dbname),
+	)
 
 	return db
 }
