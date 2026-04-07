@@ -25,6 +25,12 @@ func (sw *statusWriter) WriteHeader(code int) {
 // RequestLogger mencatat setiap request yang masuk beserta durasi dan status code
 func RequestLogger(h http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Stop log spam from prometheus scrapes
+		if r.URL.Path == "/metrics" {
+			h.ServeHTTP(w, r)
+			return
+		}
+
 		start := time.Now()
 
 		sw := &statusWriter{ResponseWriter: w, statusCode: http.StatusOK}

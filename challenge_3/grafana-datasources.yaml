@@ -11,9 +11,15 @@ datasources:
     type: loki
     access: proxy
     url: http://loki:3100
+    jsonData:
+      derivedFields:
+        - datasourceUid: tempo
+          matcherRegex: '"trace_id":\s*"(\w+)"'
+          name: TraceID
+          url: '$${__value.raw}'
 
   - name: Tempo
     type: tempo
     access: proxy
     url: http://tempo:3200
-  
+    uid: tempo

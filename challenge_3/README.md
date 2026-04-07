@@ -422,7 +422,9 @@ Proyek ini menerapkan konsep **Three Pillars of Observability** agar sistem dapa
 Digunakan untuk menjawab pertanyaan: _"Seberapa sibuk server kita dan berapa lama waktu responnya?"_
 
 - **Path**: `GET /metrics`
-- **Metrik Utama**: `bank_api_http_requests_total` dan `bank_api_http_request_duration_seconds`.
+- **Metrik Utama (HTTP)**: `bank_api_http_requests_total` dan `bank_api_http_request_duration_seconds`.
+- **Metrik Bisnis (Transfer)**: `bank_api_business_transactions_total`, `bank_api_business_transfer_amount_total_usd`, dan `bank_api_business_transfer_amount_distribution`.
+- **Metrik Sistem**: `bank_api_business_accounts_created_total`.
 
 ### 2. Logs (Loki + Promtail)
 

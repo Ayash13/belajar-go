@@ -11,6 +11,12 @@ import (
 // OpenTelemetryMiddleware menangkap setiap request HTTP ke dalam sebuah root span
 func OpenTelemetryMiddleware(h http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Jangan record traces untuk scraping metrics
+		if r.URL.Path == "/metrics" {
+			h.ServeHTTP(w, r)
+			return
+		}
+
 		// Tracer bisa saja belum diinisialisasi
 		if telemetry.Tracer == nil {
 			h.ServeHTTP(w, r)

@@ -2,9 +2,11 @@ package repository
 
 import (
 	"belajar-go/challenge_3/entity"
+	"belajar-go/challenge_3/telemetry"
 	"context"
 
 	"github.com/jmoiron/sqlx"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 type AccountRepository interface {
@@ -24,37 +26,76 @@ func NewAccountRepository(db *sqlx.DB) AccountRepository {
 }
 
 func (r *accountRepositoryImpl) Create(ctx context.Context, account *entity.Account) error {
+	ctx, span := telemetry.Tracer.Start(ctx, "AccountRepository.Create")
+	defer span.End()
+
 	query := `INSERT INTO accounts (account_holder, balance)
 		VALUES ($1, $2) RETURNING id, created_at, updated_at`
+	
+	span.SetAttributes(attribute.String("db.query", query))
+
 	return r.db.QueryRowContext(ctx, query,
 		account.AccountHolder, account.Balance,
 	).Scan(&account.ID, &account.CreatedAt, &account.UpdatedAt)
 }
 
 func (r *accountRepositoryImpl) GetAll(ctx context.Context) ([]entity.Account, error) {
+	ctx, span := telemetry.Tracer.Start(ctx, "AccountRepository.GetAll")
+	defer span.End()
+
 	var accounts []entity.Account
 	query := `SELECT id, account_holder, balance, created_at, updated_at FROM accounts ORDER BY created_at`
+	
+	span.SetAttributes(attribute.String("db.query", query))
+	
 	err := r.db.SelectContext(ctx, &accounts, query)
 	return accounts, err
 }
 
 func (r *accountRepositoryImpl) GetByID(ctx context.Context, id string) (*entity.Account, error) {
+	ctx, span := telemetry.Tracer.Start(ctx, "AccountRepository.GetByID")
+	defer span.End()
+
 	var account entity.Account
 	query := `SELECT id, account_holder, balance, created_at, updated_at FROM accounts WHERE id = $1`
+	
+	span.SetAttributes(
+		attribute.String("db.query", query),
+		attribute.String("account.id", id),
+	)
+
 	err := r.db.GetContext(ctx, &account, query, id)
 	return &account, err
 }
 
 func (r *accountRepositoryImpl) Update(ctx context.Context, account *entity.Account) error {
+	ctx, span := telemetry.Tracer.Start(ctx, "AccountRepository.Update")
+	defer span.End()
+
 	query := `UPDATE accounts SET account_holder = $1, balance = $2, updated_at = NOW()
 		WHERE id = $3 RETURNING updated_at`
+	
+	span.SetAttributes(
+		attribute.String("db.query", query),
+		attribute.String("account.id", account.ID),
+	)
+
 	return r.db.QueryRowContext(ctx, query,
 		account.AccountHolder, account.Balance, account.ID,
 	).Scan(&account.UpdatedAt)
 }
 
 func (r *accountRepositoryImpl) Delete(ctx context.Context, id string) error {
+	ctx, span := telemetry.Tracer.Start(ctx, "AccountRepository.Delete")
+	defer span.End()
+
 	query := `DELETE FROM accounts WHERE id = $1`
+	
+	span.SetAttributes(
+		attribute.String("db.query", query),
+		attribute.String("account.id", id),
+	)
+
 	result, err := r.db.ExecContext(ctx, query, id)
 	if err != nil {
 		return err
@@ -68,5 +109,3 @@ func (r *accountRepositoryImpl) Delete(ctx context.Context, id string) error {
 	}
 	return nil
 }
-
-

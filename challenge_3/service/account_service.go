@@ -4,9 +4,12 @@ import (
 	"belajar-go/challenge_3/dto"
 	"belajar-go/challenge_3/entity"
 	"belajar-go/challenge_3/repository"
+	"belajar-go/challenge_3/telemetry"
 	"context"
 	"database/sql"
 	"errors"
+
+	"go.opentelemetry.io/otel/attribute"
 )
 
 type AccountService interface {
@@ -52,6 +55,9 @@ func toTransactionResponse(t *entity.Transaction) dto.TransactionResponse {
 }
 
 func (s *accountServiceImpl) CreateAccount(ctx context.Context, req dto.CreateAccountRequest) (dto.AccountResponse, error) {
+	ctx, span := telemetry.Tracer.Start(ctx, "AccountService.CreateAccount")
+	defer span.End()
+
 	account := &entity.Account{
 		AccountHolder: req.AccountHolder,
 		Balance:       req.Balance,
@@ -61,10 +67,17 @@ func (s *accountServiceImpl) CreateAccount(ctx context.Context, req dto.CreateAc
 		return dto.AccountResponse{}, err
 	}
 
+	telemetry.BankAccountsTotal.Inc()
+
+	span.SetAttributes(attribute.String("account.id", account.ID))
+
 	return toAccountResponse(account), nil
 }
 
 func (s *accountServiceImpl) GetAllAccounts(ctx context.Context) ([]dto.AccountResponse, error) {
+	ctx, span := telemetry.Tracer.Start(ctx, "AccountService.GetAllAccounts")
+	defer span.End()
+
 	accounts, err := s.accountRepo.GetAll(ctx)
 	if err != nil {
 		return nil, err
@@ -78,6 +91,10 @@ func (s *accountServiceImpl) GetAllAccounts(ctx context.Context) ([]dto.AccountR
 }
 
 func (s *accountServiceImpl) GetAccountByID(ctx context.Context, id string) (dto.AccountResponse, error) {
+	ctx, span := telemetry.Tracer.Start(ctx, "AccountService.GetAccountByID")
+	defer span.End()
+	span.SetAttributes(attribute.String("account.id", id))
+
 	account, err := s.accountRepo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -89,6 +106,10 @@ func (s *accountServiceImpl) GetAccountByID(ctx context.Context, id string) (dto
 }
 
 func (s *accountServiceImpl) UpdateAccount(ctx context.Context, id string, req dto.UpdateAccountRequest) (dto.AccountResponse, error) {
+	ctx, span := telemetry.Tracer.Start(ctx, "AccountService.UpdateAccount")
+	defer span.End()
+	span.SetAttributes(attribute.String("account.id", id))
+
 	account, err := s.accountRepo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -112,6 +133,10 @@ func (s *accountServiceImpl) UpdateAccount(ctx context.Context, id string, req d
 }
 
 func (s *accountServiceImpl) DeleteAccount(ctx context.Context, id string) error {
+	ctx, span := telemetry.Tracer.Start(ctx, "AccountService.DeleteAccount")
+	defer span.End()
+	span.SetAttributes(attribute.String("account.id", id))
+
 	_, err := s.accountRepo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -123,8 +148,17 @@ func (s *accountServiceImpl) DeleteAccount(ctx context.Context, id string) error
 }
 
 func (s *accountServiceImpl) Transfer(ctx context.Context, req dto.TransferRequest) (dto.TransferResponse, error) {
+	ctx, span := telemetry.Tracer.Start(ctx, "AccountService.Transfer")
+	defer span.End()
+	span.SetAttributes(
+		attribute.String("transfer.from", req.FromAccountID),
+		attribute.String("transfer.to", req.ToAccountID),
+		attribute.Float64("transfer.amount", req.Amount),
+	)
+
 	fromAccount, err := s.accountRepo.GetByID(ctx, req.FromAccountID)
 	if err != nil {
+		telemetry.BankTransactionsTotal.WithLabelValues("transfer", "failure").Inc()
 		if errors.Is(err, sql.ErrNoRows) {
 			return dto.TransferResponse{}, errors.New("source account not found")
 		}
@@ -133,6 +167,7 @@ func (s *accountServiceImpl) Transfer(ctx context.Context, req dto.TransferReque
 
 	toAccount, err := s.accountRepo.GetByID(ctx, req.ToAccountID)
 	if err != nil {
+		telemetry.BankTransactionsTotal.WithLabelValues("transfer", "failure").Inc()
 		if errors.Is(err, sql.ErrNoRows) {
 			return dto.TransferResponse{}, errors.New("destination account not found")
 		}
@@ -140,11 +175,13 @@ func (s *accountServiceImpl) Transfer(ctx context.Context, req dto.TransferReque
 	}
 
 	if fromAccount.Balance < req.Amount {
+		telemetry.BankTransactionsTotal.WithLabelValues("transfer", "failure").Inc()
 		return dto.TransferResponse{}, errors.New("insufficient balance for transfer")
 	}
 
 	tx, err := s.transactionRepo.BeginTx(ctx)
 	if err != nil {
+		telemetry.BankTransactionsTotal.WithLabelValues("transfer", "failure").Inc()
 		return dto.TransferResponse{}, err
 	}
 	defer tx.Rollback()
@@ -153,9 +190,11 @@ func (s *accountServiceImpl) Transfer(ctx context.Context, req dto.TransferReque
 	toAccount.Balance += req.Amount
 
 	if err := s.transactionRepo.UpdateAccountBalance(ctx, tx, fromAccount.ID, fromAccount.Balance); err != nil {
+		telemetry.BankTransactionsTotal.WithLabelValues("transfer", "failure").Inc()
 		return dto.TransferResponse{}, err
 	}
 	if err := s.transactionRepo.UpdateAccountBalance(ctx, tx, toAccount.ID, toAccount.Balance); err != nil {
+		telemetry.BankTransactionsTotal.WithLabelValues("transfer", "failure").Inc()
 		return dto.TransferResponse{}, err
 	}
 
@@ -165,12 +204,18 @@ func (s *accountServiceImpl) Transfer(ctx context.Context, req dto.TransferReque
 		Amount:        req.Amount,
 	}
 	if err := s.transactionRepo.Create(ctx, tx, transaction); err != nil {
+		telemetry.BankTransactionsTotal.WithLabelValues("transfer", "failure").Inc()
 		return dto.TransferResponse{}, err
 	}
 
 	if err := tx.Commit(); err != nil {
+		telemetry.BankTransactionsTotal.WithLabelValues("transfer", "failure").Inc()
 		return dto.TransferResponse{}, err
 	}
+
+	telemetry.BankTransactionsTotal.WithLabelValues("transfer", "success").Inc()
+	telemetry.BankTransactionAmountTotal.Add(req.Amount)
+	telemetry.BankTransactionAmountDistribution.Observe(req.Amount)
 
 	// Re-fetch updated accounts
 	fromAccount, _ = s.accountRepo.GetByID(ctx, req.FromAccountID)
@@ -185,6 +230,10 @@ func (s *accountServiceImpl) Transfer(ctx context.Context, req dto.TransferReque
 }
 
 func (s *accountServiceImpl) GetTransactionsByAccountID(ctx context.Context, accountID string) ([]dto.TransactionResponse, error) {
+	ctx, span := telemetry.Tracer.Start(ctx, "AccountService.GetTransactionsByAccountID")
+	defer span.End()
+	span.SetAttributes(attribute.String("account.id", accountID))
+
 	_, err := s.accountRepo.GetByID(ctx, accountID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
