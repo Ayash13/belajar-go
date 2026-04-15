@@ -8,6 +8,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 
 	"go.opentelemetry.io/otel/attribute"
 )
@@ -18,7 +19,7 @@ type AccountService interface {
 	GetAccountByID(ctx context.Context, id string) (dto.AccountResponse, error)
 	UpdateAccount(ctx context.Context, id string, req dto.UpdateAccountRequest) (dto.AccountResponse, error)
 	DeleteAccount(ctx context.Context, id string) error
-	Transfer(ctx context.Context, req dto.TransferRequest) (dto.TransferResponse, error)
+	Transfer(ctx context.Context, req dto.TransferRequest) (dto.SnapTransferResponse, error)
 	GetTransactionsByAccountID(ctx context.Context, accountID string) ([]dto.TransactionResponse, error)
 }
 
@@ -46,11 +47,12 @@ func toAccountResponse(a *entity.Account) dto.AccountResponse {
 
 func toTransactionResponse(t *entity.Transaction) dto.TransactionResponse {
 	return dto.TransactionResponse{
-		ID:            t.ID,
-		FromAccountID: t.FromAccountID,
-		ToAccountID:   t.ToAccountID,
-		Amount:        t.Amount,
-		CreatedAt:     t.CreatedAt,
+		ID:                 t.ID,
+		PartnerReferenceNo: t.PartnerReferenceNo,
+		FromAccountID:      t.FromAccountID,
+		ToAccountID:        t.ToAccountID,
+		Amount:             t.Amount,
+		CreatedAt:          t.CreatedAt,
 	}
 }
 
@@ -147,85 +149,97 @@ func (s *accountServiceImpl) DeleteAccount(ctx context.Context, id string) error
 	return s.accountRepo.Delete(ctx, id)
 }
 
-func (s *accountServiceImpl) Transfer(ctx context.Context, req dto.TransferRequest) (dto.TransferResponse, error) {
+func (s *accountServiceImpl) Transfer(ctx context.Context, req dto.TransferRequest) (dto.SnapTransferResponse, error) {
 	ctx, span := telemetry.Tracer.Start(ctx, "AccountService.Transfer")
 	defer span.End()
+
+	var amountFloat float64
+	fmt.Sscanf(req.Amount.Value, "%f", &amountFloat)
+
 	span.SetAttributes(
-		attribute.String("transfer.from", req.FromAccountID),
-		attribute.String("transfer.to", req.ToAccountID),
-		attribute.Float64("transfer.amount", req.Amount),
+		attribute.String("transfer.from", req.SourceAccountNo),
+		attribute.String("transfer.to", req.BeneficiaryAccountNo),
+		attribute.Float64("transfer.amount", amountFloat),
 	)
 
-	fromAccount, err := s.accountRepo.GetByID(ctx, req.FromAccountID)
+	fromAccount, err := s.accountRepo.GetByID(ctx, req.SourceAccountNo)
 	if err != nil {
 		telemetry.BankTransactionsTotal.WithLabelValues("transfer", "failure").Inc()
 		if errors.Is(err, sql.ErrNoRows) {
-			return dto.TransferResponse{}, errors.New("source account not found")
+			return dto.SnapTransferResponse{}, errors.New("source account not found")
 		}
-		return dto.TransferResponse{}, err
+		return dto.SnapTransferResponse{}, err
 	}
 
-	toAccount, err := s.accountRepo.GetByID(ctx, req.ToAccountID)
+	toAccount, err := s.accountRepo.GetByID(ctx, req.BeneficiaryAccountNo)
 	if err != nil {
 		telemetry.BankTransactionsTotal.WithLabelValues("transfer", "failure").Inc()
 		if errors.Is(err, sql.ErrNoRows) {
-			return dto.TransferResponse{}, errors.New("destination account not found")
+			return dto.SnapTransferResponse{}, errors.New("destination account not found")
 		}
-		return dto.TransferResponse{}, err
+		return dto.SnapTransferResponse{}, err
 	}
 
-	if fromAccount.Balance < req.Amount {
+	if fromAccount.Balance < amountFloat {
 		telemetry.BankTransactionsTotal.WithLabelValues("transfer", "failure").Inc()
-		return dto.TransferResponse{}, errors.New("insufficient balance for transfer")
+		return dto.SnapTransferResponse{}, errors.New("insufficient balance for transfer")
 	}
 
 	tx, err := s.transactionRepo.BeginTx(ctx)
 	if err != nil {
 		telemetry.BankTransactionsTotal.WithLabelValues("transfer", "failure").Inc()
-		return dto.TransferResponse{}, err
+		return dto.SnapTransferResponse{}, err
 	}
 	defer tx.Rollback()
 
-	fromAccount.Balance -= req.Amount
-	toAccount.Balance += req.Amount
+	fromAccount.Balance -= amountFloat
+	toAccount.Balance += amountFloat
 
 	if err := s.transactionRepo.UpdateAccountBalance(ctx, tx, fromAccount.ID, fromAccount.Balance); err != nil {
 		telemetry.BankTransactionsTotal.WithLabelValues("transfer", "failure").Inc()
-		return dto.TransferResponse{}, err
+		return dto.SnapTransferResponse{}, err
 	}
 	if err := s.transactionRepo.UpdateAccountBalance(ctx, tx, toAccount.ID, toAccount.Balance); err != nil {
 		telemetry.BankTransactionsTotal.WithLabelValues("transfer", "failure").Inc()
-		return dto.TransferResponse{}, err
+		return dto.SnapTransferResponse{}, err
 	}
 
 	transaction := &entity.Transaction{
-		FromAccountID: req.FromAccountID,
-		ToAccountID:   req.ToAccountID,
-		Amount:        req.Amount,
+		PartnerReferenceNo: req.PartnerReferenceNo,
+		FromAccountID:      req.SourceAccountNo,
+		ToAccountID:        req.BeneficiaryAccountNo,
+		Amount:             amountFloat,
 	}
 	if err := s.transactionRepo.Create(ctx, tx, transaction); err != nil {
 		telemetry.BankTransactionsTotal.WithLabelValues("transfer", "failure").Inc()
-		return dto.TransferResponse{}, err
+		// If duplicate partner reference no, it will throw a unique constraint error from DB
+		return dto.SnapTransferResponse{}, err
 	}
 
 	if err := tx.Commit(); err != nil {
 		telemetry.BankTransactionsTotal.WithLabelValues("transfer", "failure").Inc()
-		return dto.TransferResponse{}, err
+		return dto.SnapTransferResponse{}, err
 	}
 
 	telemetry.BankTransactionsTotal.WithLabelValues("transfer", "success").Inc()
-	telemetry.BankTransactionAmountTotal.Add(req.Amount)
-	telemetry.BankTransactionAmountDistribution.Observe(req.Amount)
+	telemetry.BankTransactionAmountTotal.Add(amountFloat)
+	telemetry.BankTransactionAmountDistribution.Observe(amountFloat)
 
-	// Re-fetch updated accounts
-	fromAccount, _ = s.accountRepo.GetByID(ctx, req.FromAccountID)
-	toAccount, _ = s.accountRepo.GetByID(ctx, req.ToAccountID)
+	amountValue := fmt.Sprintf("%.2f", amountFloat)
 
-	return dto.TransferResponse{
-		Message:     "Transfer successful",
-		Transaction: toTransactionResponse(transaction),
-		FromAccount: toAccountResponse(fromAccount),
-		ToAccount:   toAccountResponse(toAccount),
+	return dto.SnapTransferResponse{
+		ResponseCode:         dto.SnapSuccess.ToResponse("17").ResponseCode,
+		ResponseMessage:      dto.SnapSuccess.ToResponse("17").ResponseMessage,
+		ReferenceNo:          transaction.ID,
+		PartnerReferenceNo:   req.PartnerReferenceNo,
+		Amount:               dto.Amount{Value: amountValue, Currency: req.Amount.Currency},
+		BeneficiaryAccountNo: req.BeneficiaryAccountNo,
+		Currency:             req.Currency,
+		CustomerReference:    req.CustomerReference,
+		SourceAccount:        req.SourceAccountNo,
+		TransactionDate:      req.TransactionDate,
+		OriginatorInfos:      req.OriginatorInfos,
+		AdditionalInfo:       req.AdditionalInfo,
 	}, nil
 }
 

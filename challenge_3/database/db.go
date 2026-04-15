@@ -48,6 +48,7 @@ func ConnectDB() *sqlx.DB {
 
 	CREATE TABLE IF NOT EXISTS transactions (
 		id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+		partner_reference_no VARCHAR(255) UNIQUE NOT NULL,
 		from_account_id UUID NOT NULL REFERENCES accounts(id),
 		to_account_id UUID NOT NULL REFERENCES accounts(id),
 		amount NUMERIC(15,2) NOT NULL,

@@ -1,0 +1,399 @@
+openapi: 3.0.3
+info:
+  title: REST API Bank (Separation of Concerns)
+  description: REST API for bank account management and transfer transactions with SNAP standard implementation.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+    description: Local Server
+paths:
+  /accounts:
+    get:
+      summary: Get All Accounts
+      description: Retrieve a list of all bank accounts.
+      responses:
+        '200':
+          description: A list of bank accounts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  status:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Account'
+    post:
+      summary: Create a New Account
+      description: Create a new bank account with an initial balance.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                account_holder:
+                  type: string
+                  example: John Doe
+                balance:
+                  type: number
+                  example: 50000
+      responses:
+        '201':
+          description: Account created successfully
+        '400':
+          description: Bad request
+
+  /accounts/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: UUID of the account
+    get:
+      summary: Get Account by ID
+      description: Retrieve details of a specific bank account.
+      responses:
+        '200':
+          description: Account details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  status:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/Account'
+        '404':
+          description: Account not found
+    put:
+      summary: Update Account
+      description: Update account holder name or balance.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                account_holder:
+                  type: string
+                  example: John Updated
+                balance:
+                  type: number
+                  example: 75000
+      responses:
+        '200':
+          description: Account updated successfully
+        '404':
+          description: Account not found
+    delete:
+      summary: Delete Account
+      description: Delete a specific bank account.
+      responses:
+        '200':
+          description: Account deleted successfully
+        '404':
+          description: Account not found
+
+  /accounts/{id}/transactions:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: UUID of the account
+    get:
+      summary: Get Transactions by Account ID
+      description: Retrieve all transactions associated with a specific bank account.
+      responses:
+        '200':
+          description: A list of transactions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  status:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TransactionResponseList'
+        '404':
+          description: Account not found
+
+  /transfer:
+    post:
+      summary: Transfer Funds (SNAP Standard)
+      description: Initiate a money transfer between two accounts using SNAP standard.
+      parameters:
+        - name: Content-Type
+          in: header
+          required: true
+          schema:
+            type: string
+            default: application/json
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+        - name: Authorization-Customer
+          in: header
+          schema:
+            type: string
+        - name: X-TIMESTAMP
+          in: header
+          required: true
+          schema:
+            type: string
+            example: 2020-12-21T10:30:24+07:00
+        - name: X-SIGNATURE
+          in: header
+          schema:
+            type: string
+        - name: ORIGIN
+          in: header
+          schema:
+            type: string
+        - name: X-PARTNER-ID
+          in: header
+          schema:
+            type: string
+        - name: X-EXTERNAL-ID
+          in: header
+          schema:
+            type: string
+        - name: X-IP-ADDRESS
+          in: header
+          schema:
+            type: string
+        - name: X-DEVICE-ID
+          in: header
+          schema:
+            type: string
+        - name: X-LATITUDE
+          in: header
+          schema:
+            type: string
+        - name: X-LONGITUDE
+          in: header
+          schema:
+            type: string
+        - name: CHANNEL-ID
+          in: header
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SnapTransferRequest'
+      responses:
+        '200':
+          description: Transfer successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SnapTransferResponse'
+        '400':
+          description: Bad request (Invalid mandatory field or format)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SnapErrorResponse'
+        '403':
+          description: Insufficient funds (Forbidden)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SnapErrorResponse'
+        '404':
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SnapErrorResponse'
+        '409':
+          description: Duplicate transactions detected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SnapErrorResponse'
+
+components:
+  schemas:
+    Account:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        account_holder:
+          type: string
+        balance:
+          type: number
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    TransactionResponseList:
+      type: object
+      properties:
+        id:
+          type: string
+        partner_reference_no:
+          type: string
+        from_account_id:
+          type: string
+        to_account_id:
+          type: string
+        amount:
+          type: number
+        created_at:
+          type: string
+
+    SnapAmount:
+      type: object
+      properties:
+        value:
+          type: string
+          example: "10000.00"
+        currency:
+          type: string
+          example: "IDR"
+
+    OriginatorInfo:
+      type: object
+      properties:
+        originatorCustomerNo:
+          type: string
+          example: "999901000003300"
+        originatorCustomerName:
+          type: string
+          example: "Hafizh"
+        originatorBankCode:
+          type: string
+          example: "002"
+
+    AdditionalInfo:
+      type: object
+      properties:
+        deviceId:
+          type: string
+          example: "12345679237"
+        channel:
+          type: string
+          example: "mobilephone"
+
+    SnapTransferRequest:
+      type: object
+      required:
+        - partnerReferenceNo
+        - amount
+        - beneficiaryAccountNo
+        - sourceAccountNo
+      properties:
+        partnerReferenceNo:
+          type: string
+          example: "2020102900000000000021"
+        amount:
+          $ref: '#/components/schemas/SnapAmount'
+        beneficiaryAccountNo:
+          type: string
+          example: "uuid-receiver"
+        beneficiaryEmail:
+          type: string
+          example: "example@example.com"
+        currency:
+          type: string
+          example: "IDR"
+        customerReference:
+          type: string
+          example: "10052019"
+        feeType:
+          type: string
+          example: "BEN"
+        remark:
+          type: string
+          example: "remark test"
+        sourceAccountNo:
+          type: string
+          example: "uuid-sender"
+        transactionDate:
+          type: string
+          example: "2019-07-03T12:08:56+07:00"
+        originatorInfos:
+          type: array
+          items:
+            $ref: '#/components/schemas/OriginatorInfo'
+        additionalInfo:
+          $ref: '#/components/schemas/AdditionalInfo'
+
+    SnapTransferResponse:
+      type: object
+      properties:
+        responseCode:
+          type: string
+          example: "2001700"
+        responseMessage:
+          type: string
+          example: "Successful"
+        referenceNo:
+          type: string
+          example: "uuid-transaction"
+        partnerReferenceNo:
+          type: string
+          example: "2020102900000000000021"
+        amount:
+          $ref: '#/components/schemas/SnapAmount'
+        beneficiaryAccountNo:
+          type: string
+          example: "uuid-receiver"
+        currency:
+          type: string
+          example: "IDR"
+        customerReference:
+          type: string
+          example: "10052019"
+        sourceAccount:
+          type: string
+          example: "uuid-sender"
+        transactionDate:
+          type: string
+          example: "2019-07-03T12:08:56+07:00"
+        originatorInfos:
+          type: array
+          items:
+            $ref: '#/components/schemas/OriginatorInfo'
+        additionalInfo:
+          $ref: '#/components/schemas/AdditionalInfo'
+
+    SnapErrorResponse:
+      type: object
+      properties:
+        responseCode:
+          type: string
+          example: "4001700"
+        responseMessage:
+          type: string
+          example: "Bad Request"

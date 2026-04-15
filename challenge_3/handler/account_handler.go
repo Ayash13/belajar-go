@@ -4,6 +4,7 @@ import (
 	"belajar-go/challenge_3/dto"
 	"belajar-go/challenge_3/service"
 	"encoding/json"
+	"fmt"
 	"net/http"
 )
 
@@ -123,33 +124,54 @@ func (h *AccountHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AccountHandler) Transfer(w http.ResponseWriter, r *http.Request) {
+	// Set default SNAP headers
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-TIMESTAMP", r.Header.Get("X-TIMESTAMP"))
+
 	var req dto.TransferRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		fmt.Println("Decode error:", err)
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(dto.BaseResponse{Code: http.StatusBadRequest, Status: "error", Message: "Invalid JSON body"})
+		snapErr := dto.SnapBadRequest.WithReason(err.Error()).ToResponse("17")
+		json.NewEncoder(w).Encode(snapErr)
 		return
 	}
 
-	if req.FromAccountID == "" || req.ToAccountID == "" || req.Amount <= 0 {
+	if req.SourceAccountNo == "" || req.BeneficiaryAccountNo == "" || req.Amount.Value == "" {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(dto.BaseResponse{Code: http.StatusBadRequest, Status: "error", Message: "from_account_id, to_account_id, and a positive amount are required"})
+		snapErr := dto.SnapInvalidMandatoryField.WithField("source/beneficiary/amount").ToResponse("17")
+		json.NewEncoder(w).Encode(snapErr)
 		return
 	}
 
 	resp, err := h.service.Transfer(r.Context(), req)
 	if err != nil {
+		var snapErr dto.SnapResponse
+		statusCode := http.StatusInternalServerError
+
 		if err.Error() == "insufficient balance for transfer" {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(dto.BaseResponse{Code: http.StatusBadRequest, Status: "error", Message: err.Error()})
-			return
+			statusCode = http.StatusForbidden
+			snapErr = dto.SnapInsufficientFunds.ToResponse("17")
+		} else if err.Error() == "source account not found" || err.Error() == "destination account not found" {
+			statusCode = http.StatusNotFound
+			snapErr = dto.SnapInvalidCardAccountCustomerVirtualAccount.ToResponse("17")
+		} else { // Assume duplicate partner no if it's db constraint usually
+			statusCode = http.StatusConflict
+			snapErr = dto.SnapDuplicatePartnerReferenceNo.ToResponse("17")
 		}
-		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(dto.BaseResponse{Code: http.StatusNotFound, Status: "error", Message: err.Error()})
+
+		w.WriteHeader(statusCode)
+		json.NewEncoder(w).Encode(snapErr)
 		return
 	}
 
+	// Apply success code to response
+	successResp := dto.SnapSuccess.ToResponse("17")
+	resp.ResponseCode = successResp.ResponseCode
+	resp.ResponseMessage = successResp.ResponseMessage
+
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(dto.BaseResponse{Code: http.StatusOK, Status: "success", Data: resp})
+	json.NewEncoder(w).Encode(resp)
 }
 
 func (h *AccountHandler) GetTransactions(w http.ResponseWriter, r *http.Request) {

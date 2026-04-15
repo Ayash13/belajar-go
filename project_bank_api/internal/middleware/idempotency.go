@@ -7,10 +7,8 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// Idempotency API untuk mutasi mencegah duplikasi
 func Idempotency(rdb *redis.Client, h http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Abaikan GET requests karena sudah idempotent secara definisi
 		if r.Method == http.MethodGet {
 			h.ServeHTTP(w, r)
 			return
@@ -18,13 +16,12 @@ func Idempotency(rdb *redis.Client, h http.Handler) http.HandlerFunc {
 
 		key := r.Header.Get("Idempotency-Key")
 		if key != "" && rdb != nil {
-			// bank_api:idempotency:key:uuid-123-abc
-			redisKey := "bank_api:idempotency:key:" + key
+			redisKey := "snap_api:idempotency:key:" + key
 			isFirstTime, err := rdb.SetNX(r.Context(), redisKey, "started", 500*time.Millisecond).Result()
 			if err != nil || !isFirstTime {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusConflict)
-				w.Write([]byte(`{"status":"error","message":"duplicate transaction rejected"}`))
+				w.Write([]byte(`{"responseCode":"4090000","responseMessage":"Duplicate transaction rejected"}`))
 				return
 			}
 		}

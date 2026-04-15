@@ -31,8 +31,8 @@ func (r *transactionRepositoryImpl) Create(ctx context.Context, tx *sqlx.Tx, tra
 	ctx, span := telemetry.Tracer.Start(ctx, "TransactionRepository.Create")
 	defer span.End()
 
-	query := `INSERT INTO transactions (from_account_id, to_account_id, amount)
-		VALUES ($1, $2, $3) RETURNING id, created_at`
+	query := `INSERT INTO transactions (partner_reference_no, from_account_id, to_account_id, amount)
+		VALUES ($1, $2, $3, $4) RETURNING id, created_at`
 	
 	span.SetAttributes(
 		attribute.String("db.query", query),
@@ -41,7 +41,7 @@ func (r *transactionRepositoryImpl) Create(ctx context.Context, tx *sqlx.Tx, tra
 	)
 
 	return tx.QueryRowContext(ctx, query,
-		transaction.FromAccountID, transaction.ToAccountID, transaction.Amount,
+		transaction.PartnerReferenceNo, transaction.FromAccountID, transaction.ToAccountID, transaction.Amount,
 	).Scan(&transaction.ID, &transaction.CreatedAt)
 }
 
@@ -50,7 +50,7 @@ func (r *transactionRepositoryImpl) GetByAccountID(ctx context.Context, accountI
 	defer span.End()
 
 	var transactions []entity.Transaction
-	query := `SELECT id, from_account_id, to_account_id, amount, created_at
+	query := `SELECT id, partner_reference_no, from_account_id, to_account_id, amount, created_at
 		FROM transactions WHERE from_account_id = $1 OR to_account_id = $1 ORDER BY created_at`
 	
 	span.SetAttributes(

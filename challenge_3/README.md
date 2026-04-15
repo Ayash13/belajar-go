@@ -328,62 +328,81 @@ DELETE /accounts/{id}
 POST /transfer
 ```
 
+**HTTP Headers:**
+
+```
+Content-Type: application/json
+Authorization: Bearer <token>
+Authorization-Customer: Bearer <customer_token>
+X-TIMESTAMP: 2020-12-21T10:30:24+07:00
+X-SIGNATURE: 85be817c55...
+ORIGIN: www.hostname.com
+X-PARTNER-ID: 821508239...
+X-EXTERNAL-ID: 418075533...
+X-IP-ADDRESS: 172.24.281.24
+X-DEVICE-ID: 09864ADCASA
+X-LATITUDE: -6.1617169
+X-LONGITUDE: 106.6643946
+CHANNEL-ID: 95221
+```
+
 **Request Body:**
 
 ```json
 {
-  "from_account_id": "uuid-sender",
-  "to_account_id": "uuid-receiver",
-  "amount": 10000
+   "partnerReferenceNo":"2020102900000000000021",
+   "amount":{
+      "value":"10000.00",
+      "currency":"IDR"
+   },
+   "beneficiaryAccountNo":"uuid-receiver",
+   "beneficiaryEmail":"yories.yolanda@work.bri.co.id",
+   "currency":"IDR",
+   "customerReference":"10052019",
+   "feeType":"BEN",
+   "remark":"remark test",
+   "sourceAccountNo":"uuid-sender",
+   "transactionDate":"2019-07-03T12:08:56+07:00",
+   "originatorInfos":[{
+      "originatorCustomerNo":"999901000003300",
+      "originatorCustomerName":"Hafizh",
+      "originatorBankCode":"002"
+   }],
+   "additionalInfo":{
+      "deviceId":"12345679237",
+      "channel":"mobilephone"
+   }
 }
 ```
 
-**HTTP Headers:**
-
-```
-Idempotency-Key: "trx-unique-id-991" (Opsional, untuk mencegah duplikasi transfer)
-```
-
-**Response (200):**
+**Response (200 Success):**
 
 ```json
 {
-  "code": 200,
-  "status": "success",
-  "data": {
-    "message": "Transfer successful",
-    "transaction": {
-      "id": "uuid-transaction",
-      "from_account_id": "uuid-sender",
-      "to_account_id": "uuid-receiver",
-      "amount": 10000,
-      "created_at": "..."
-    },
-    "from_account": {
-      "id": "uuid-sender",
-      "account_holder": "John Doe",
-      "balance": 40000,
-      "created_at": "...",
-      "updated_at": "..."
-    },
-    "to_account": {
-      "id": "uuid-receiver",
-      "account_holder": "Jane Doe",
-      "balance": 40000,
-      "created_at": "...",
-      "updated_at": "..."
-    }
-  }
+   "responseCode": "2001700",
+   "responseMessage": "Successful",
+   "referenceNo": "uuid-transaction",
+   "partnerReferenceNo": "2020102900000000000021",
+   "amount": {
+      "value": "10000.00",
+      "currency": "IDR"
+   },
+   "beneficiaryAccountNo": "uuid-receiver",
+   "currency": "IDR",
+   "customerReference": "10052019",
+   "sourceAccount": "uuid-sender",
+   "transactionDate": "2019-07-03T12:08:56+07:00",
+   "originatorInfos": [ ... ],
+   "additionalInfo": { ... }
 }
 ```
 
-**Error — Saldo tidak cukup (400):**
+**Error — Saldo tidak cukup (403):**
 
 ```json
 {
-  "code": 400,
-  "status": "error",
-  "message": "insufficient balance for transfer"
+  "responseCode": "4031714",
+  "responseMessage": "Insufficient Funds"
 }
 ```
 

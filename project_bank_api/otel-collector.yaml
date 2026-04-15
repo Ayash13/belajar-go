@@ -1,0 +1,81 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+  # Scrape Kafka JMX metrics via Prometheus receiver
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: 'kafka-metrics'
+          static_configs:
+            - targets: ['kafka:9101']
+              labels:
+                service: 'kafka'
+
+processors:
+  batch:
+    timeout: 5s
+    send_batch_size: 1024
+
+  resource:
+    attributes:
+      - key: service.namespace
+        value: snap-bank
+        action: upsert
+
+  attributes:
+    actions:
+      - key: environment
+        value: development
+        action: upsert
+
+exporters:
+  # Traces → Tempo
+  otlphttp/tempo:
+    endpoint: http://tempo:4318
+    tls:
+      insecure: true
+
+  # Metrics → Prometheus (exposed for Prometheus to scrape)
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    namespace: snap_bank
+    resource_to_telemetry_conversion:
+      enabled: true
+
+  # Logs → Loki
+  loki:
+    endpoint: http://loki:3100/loki/api/v1/push
+    default_labels_enabled:
+      exporter: true
+      job: true
+
+  debug:
+    verbosity: basic
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch, resource]
+      exporters: [otlphttp/tempo, debug]
+
+    metrics:
+      receivers: [otlp, prometheus]
+      processors: [batch, resource]
+      exporters: [prometheus, debug]
+
+    logs:
+      receivers: [otlp]
+      processors: [batch, resource, attributes]
+      exporters: [loki, debug]
+
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      address: 0.0.0.0:8888

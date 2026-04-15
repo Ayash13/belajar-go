@@ -1,7 +1,5 @@
 package dto
 
-import "time"
-
 type Amount struct {
 	Value    string `json:"value"`
 	Currency string `json:"currency"`
@@ -11,11 +9,6 @@ type OriginatorInfo struct {
 	OriginatorCustomerNo   string `json:"originatorCustomerNo"`
 	OriginatorCustomerName string `json:"originatorCustomerName"`
 	OriginatorBankCode     string `json:"originatorBankCode"`
-}
-
-type AdditionalInfo struct {
-	DeviceID string `json:"deviceId"`
-	Channel  string `json:"channel"`
 }
 
 type TransferRequest struct {
@@ -33,16 +26,7 @@ type TransferRequest struct {
 	AdditionalInfo       AdditionalInfo   `json:"additionalInfo"`
 }
 
-type TransactionResponse struct {
-	ID                 string    `json:"id"`
-	PartnerReferenceNo string    `json:"partner_reference_no"`
-	FromAccountID      string    `json:"from_account_id"`
-	ToAccountID        string    `json:"to_account_id"`
-	Amount             float64   `json:"amount"`
-	CreatedAt          time.Time `json:"created_at"`
-}
-
-type SnapTransferResponse struct {
+type TransferResponse struct {
 	ResponseCode         string           `json:"responseCode"`
 	ResponseMessage      string           `json:"responseMessage"`
 	ReferenceNo          string           `json:"referenceNo"`
