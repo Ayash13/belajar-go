@@ -70,6 +70,12 @@ go run main.go 1     # jalankan materi tertentu (1-27)
 | C3 | [Challenge 3: REST API Bank (SOC)](challenge_3/README.md) | `challenge_3/` |
 | C4 | [Challenge 4: Banking Transaction Processing](challenge_4/README.md) | `challenge_4/` |
 
+## Final Project
+
+| No | Topik | Folder |
+|----|-------|--------|
+| FP1 | [Project Bank API](project_bank_api/README.md) | `project_bank_api/` |
+
 ## Project Structure
 
 ```
@@ -123,7 +129,8 @@ belajar-go/
 ├── challenge_1/
 ├── challenge_2/
 ├── challenge_3/
-└── challenge_4/
+├── challenge_4/
+└── project_bank_api/
 ```
 
 Setiap folder berisi file `.go` (kode) dan `README.md` (penjelasan).
