@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package account;
+
+option go_package = "./pb";
+
+service AccountGrpc {
+  rpc GetBalance (GetBalanceRequest) returns (GetBalanceResponse);
+  rpc UpdateBalance (UpdateBalanceRequest) returns (UpdateBalanceResponse);
+}
+
+message GetBalanceRequest {
+  string account_no = 1;
+}
+
+message GetBalanceResponse {
+  string account_no = 1;
+  string name = 2;
+  double balance = 3;
+  string currency = 4;
+  string status = 5;
+  bool found = 6;
+}
+
+message UpdateBalanceRequest {
+  string account_no = 1;
+  double new_balance = 2;
+}
+
+message UpdateBalanceResponse {
+  bool success = 1;
+  string message = 2;
+}

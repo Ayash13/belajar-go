@@ -1,0 +1,39 @@
+package config
+
+import (
+	"github.com/jmoiron/sqlx"
+	"go.uber.org/zap"
+)
+
+func RunMigrations(db *sqlx.DB) {
+	migrationSQL := `
+	CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+	CREATE TABLE IF NOT EXISTS transactions (
+		id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+		partner_reference_no VARCHAR(255) UNIQUE NOT NULL,
+		reference_no VARCHAR(255) UNIQUE NOT NULL,
+		source_account_no VARCHAR(50) NOT NULL,
+		beneficiary_account_no VARCHAR(50) NOT NULL,
+		amount NUMERIC(15,2) NOT NULL,
+		currency VARCHAR(10) NOT NULL DEFAULT 'IDR',
+		remark TEXT,
+		fee_type VARCHAR(10),
+		transaction_date TIMESTAMP NOT NULL,
+		status VARCHAR(20) NOT NULL DEFAULT 'SUCCESS',
+		created_at TIMESTAMP NOT NULL DEFAULT NOW()
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_transactions_partner_ref ON transactions(partner_reference_no);
+	CREATE INDEX IF NOT EXISTS idx_transactions_reference_no ON transactions(reference_no);
+	CREATE INDEX IF NOT EXISTS idx_transactions_source ON transactions(source_account_no);
+	CREATE INDEX IF NOT EXISTS idx_transactions_beneficiary ON transactions(beneficiary_account_no);
+	CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(transaction_date);
+	`
+
+	if _, err := db.Exec(migrationSQL); err != nil {
+		Log.Fatal("Failed to run migrations", zap.Error(err))
+	}
+
+	Log.Info("Database migration completed")
+}

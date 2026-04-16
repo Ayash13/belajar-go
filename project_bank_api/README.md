@@ -1,15 +1,16 @@
-# SNAP Bank API
+# SNAP Bank API (Microservices Architecture)
 
-Production-ready Banking API built with Go, fully compliant with the **SNAP (Standard National Open API Payment)** protocol.
+Production-ready Banking API built with Go, fully compliant with the **SNAP (Standard National Open API Payment)** protocol. The application has been refactored from a monolith into a robust event-driven microservices architecture.
 
 ## Tech Stack
 
 | Category | Technology |
 |---|---|
-| **Language** | Go 1.24 |
-| **Database** | PostgreSQL 15 |
+| **Language** | Go 1.24 (Alpine) |
+| **Databases** | PostgreSQL 15 (3 separate instances) |
 | **Cache / Rate Limit** | Redis 7 |
 | **Message Broker** | Apache Kafka (KRaft mode) |
+| **Communication** | REST (HTTP), gRPC, Async (Kafka Event-Driven) |
 | **Tracing** | OpenTelemetry → Tempo |
 | **Metrics** | Prometheus |
 | **Logging** | Zap → Loki (via Promtail) |
@@ -17,57 +18,23 @@ Production-ready Banking API built with Go, fully compliant with the **SNAP (Sta
 | **Dashboards** | Grafana |
 | **Containerization** | Docker Compose |
 
-## Architecture
+## Microservices Architecture
 
-```
+The system is broken down into three main services, fulfilling specific business domains, each with its own independent PostgreSQL database to maintain complete data isolation:
+
+1. **Account Service (`8081`)**: Manages account creation and balance inquiries. Exposes a internal gRPC Server (`50051`) for synchronous balance validations.
+2. **Transaction Service (`8082`)**: Handles intra-bank transfers and transaction history. Communicates via REST for clients and synchronously requests balance updates from the Account Service via gRPC. 
+3. **Notification Service (`8083`)**: Consumes Kafka events seamlessly and sends fully-automated asynchronous HTTP callbacks to partner webhooks.
+
+### Project Structure
+```text
 project_bank_api/
-├── main.go                         # Application entrypoint
-├── config/                         # Configuration & infrastructure setup
-│   ├── config.go                   #   Database & Redis connections
-│   ├── kafka.go                    #   Kafka writer
-│   ├── logger.go                   #   Zap logger (dev/prod)
-│   ├── migration.go                #   Auto database migrations
-│   └── topic.go                    #   Kafka topic creation
-├── internal/                       # Private application code
-│   ├── adapter/                    #   External service adapters
-│   │   └── event_publisher.go      #     Kafka event publisher
-│   ├── constant/                   #   SNAP codes & Kafka topics
-│   │   ├── service_code.go
-│   │   └── kafka_topics.go
-│   ├── domain/                     #   Domain models
-│   │   ├── account.go
-│   │   └── transaction.go
-│   ├── dto/                        #   Request/Response DTOs
-│   │   ├── account_dto.go
-│   │   ├── event_dto.go
-│   │   ├── snap_response.go
-│   │   └── transaction_dto.go
-│   ├── handler/                    #   HTTP handlers
-│   │   ├── account_handler.go
-│   │   └── snap_middleware.go      #     SNAP header & signature validation
-│   ├── middleware/                  #   Global middleware chain
-│   │   ├── core.go                 #     Middleware orchestration
-│   │   ├── cache.go                #     Redis response caching
-│   │   ├── idempotency.go          #     Redis idempotency (SetNX)
-│   │   ├── metrics.go              #     Prometheus HTTP metrics
-│   │   ├── rate_limit.go           #     Redis rate limiter
-│   │   ├── request_logger.go       #     Structured request logging
-│   │   └── tracing.go              #     OpenTelemetry span creation
-│   ├── repository/                 #   Database access layer
-│   │   ├── account_repository.go
-│   │   └── transaction_repository.go
-│   └── service/                    #   Business logic layer
-│       └── account_service.go
-├── pkg/                            # Shared utilities
-│   ├── telemetry/                  #   Tracer & Prometheus metrics
-│   │   ├── tracer.go
-│   │   └── metrics.go
-│   ├── response.go                 #   Response helpers
-│   └── snap_util.go                #   HMAC signature & ID generators
-├── migrations/                     #   SQL migration files
-│   └── 001_init.sql
+├── account-service/                # Account management & gRPC Server   
+├── transaction-service/            # Transfer management & gRPC Client
+├── notification-service/           # Webhook Async Callback dispatcher
+├── pb/                             # Shared Protobufs generated code
+├── proto/                          # .proto definition files
 ├── docker-compose.yml              # Full infrastructure stack
-├── Dockerfile                      # Multi-stage build
 ├── otel-collector.yaml             # OpenTelemetry Collector config
 ├── prometheus.yaml                 # Prometheus scrape config
 ├── grafana-datasources.yaml        # Grafana datasource provisioning
@@ -75,56 +42,30 @@ project_bank_api/
 └── promtail.yaml                   # Promtail log shipping config
 ```
 
-### Request Flow
+### Request Flow (Transfer Example)
 
-```
+```text
 Client Request
     │
     ▼
-┌─────────────────────────────────────────────────┐
-│  Middleware Chain                                │
-│  OTel → Prometheus → Logger → CORS → JSON       │
-│  → RateLimit → Idempotency → Timeout            │
-│  → SNAPMiddleware (header + signature validation)│
-└────────────────────┬────────────────────────────┘
-                     ▼
-              ┌─────────────┐
-              │   Handler   │  ← Parse request, map SNAP response codes
-              └──────┬──────┘
-                     ▼
-              ┌─────────────┐
-              │   Service   │  ← Business logic, validation, Kafka events
-              └──────┬──────┘
-                     ▼
-              ┌─────────────┐
-              │ Repository  │  ← Database queries (PostgreSQL)
-              └─────────────┘
-```
-
-### Observability Pipeline
-
-```
-                 ┌──────────────┐
-                 │  Go App      │
-                 │  (snap-bank) │
-                 └──────┬───────┘
-                        │ OTLP
-                        ▼
-              ┌──────────────────┐
-              │  OpenTelemetry   │
-              │  Collector       │
-              └──┬───────┬───┬──┘
-                 │       │   │
-        traces   │  metrics  │  logs
-                 ▼       ▼   ▼
-              ┌─────┐ ┌────┐ ┌─────┐
-              │Tempo│ │Prom│ │Loki │
-              └──┬──┘ └─┬──┘ └──┬──┘
-                 │      │      │
-              ┌──▼──────▼──────▼──┐
-              │     Grafana       │
-              │ trace↔log↔metric  │
-              └───────────────────┘
+┌───────────────────────┐
+│ Transaction Service   │  ← Validates HTTP Request, checks SNAP headers
+└───┬───────────────────┘
+    │ (gRPC)
+    ▼
+┌───────────────────────┐
+│ Account Service       │  ← Validates balance constraints, deducts/credits balances 
+└───┬───────────────────┘
+    │ (Kafka Event: snap.transfer.completed)
+    ▼
+┌───────────────────────┐
+│ Notification Service  │  ← Consumes event
+└───┬───────────────────┘
+    │ (HTTP POST)
+    ▼
+┌───────────────────────┐
+│ Partner Webhook URL   │  ← Third-party server receives transaction status (e.g Webhook.site)
+└───────────────────────┘
 ```
 
 ## Getting Started
@@ -132,102 +73,91 @@ Client Request
 ### Prerequisites
 
 - Docker & Docker Compose
-- Go 1.24+ (for local development)
 
-### Run
+### Run the Stack
 
+To build the Go binaries and start exactly 14 containers (Services, DBs, Kafka, Redis, Obs-stack):
 ```bash
-# Start the full stack
-docker compose up --build -d
+# Start the full stack in detached mode
+docker-compose up -d --build
 
-# Check logs
-docker compose logs -f app
+# Check the status of all containers
+docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 ```
 
-### Services
+### Services & Ports
 
-| Service | URL | Credentials |
+| Component | URL / Port | Credentials / Note |
 |---|---|---|
-| **API** | http://localhost:8081 | — |
+| **Account Service** | http://localhost:8081 | Internal gRPC on 50051 |
+| **Transaction Service**| http://localhost:8082 | — |
+| **Notification Service**| http://localhost:8083 | — |
 | **Grafana** | http://localhost:3001 | admin / admin |
 | **Kafka UI** | http://localhost:8090 | — |
 | **Prometheus** | http://localhost:9091 | — |
 
-### Health Check
-
-```bash
-curl http://localhost:8081/health
-# {"status":"ok"}
-```
-
 ## API Endpoints
 
-All endpoints under `/snap/v1/` require SNAP headers.
+All endpoints heavily enforce **SNAP required headers**.
 
+### Account Service (`8081`)
 | Method | Endpoint | Description |
 |---|---|---|
 | `POST` | `/snap/v1/account-creation` | Create a new account |
-| `POST` | `/snap/v1/transfer-intrabank` | Transfer between accounts |
-| `GET` | `/snap/v1/accounts` | List all accounts |
+| `GET` | `/snap/v1/accounts` | List all accounts (Cached via Redis) |
 | `GET` | `/snap/v1/accounts/{accountNo}` | Balance inquiry |
-| `POST` | `/snap/v1/transaction-history` | Transaction history |
+
+### Transaction Service (`8082`)
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/snap/v1/transfer-intrabank` | Transfer between accounts |
+| `POST` | `/snap/v1/transaction-history` | Fetch transaction history |
 
 ### Required SNAP Headers
 
-| Header | Description |
-|---|---|
-| `Authorization` | Bearer token |
-| `X-TIMESTAMP` | ISO 8601 timestamp |
-| `X-SIGNATURE` | HMAC-SHA256(`timestamp\|partnerID`, secret_key) |
-| `X-PARTNER-ID` | Partner identifier |
-| `X-EXTERNAL-ID` | Unique request ID |
-| `CHANNEL-ID` | Channel identifier |
+For every single request listed above, you must pass:
 
-### Postman Collection
+| Header | Example Value | Description |
+|---|---|---|
+| `X-TIMESTAMP` | `2024-03-15T10:00:00+07:00` | ISO 8601 timestamp |
+| `X-SIGNATURE` | `any-string` | HMAC-SHA256 signature (Mocked for dev) |
+| `X-PARTNER-ID` | `partner-xyz` | Partner identifier |
+| `X-EXTERNAL-ID` | `req-12345` | Unique request check (used for Idempotency)|
+| `Content-Type` | `application/json` | standard json |
 
-Import `SNAP_Bank_API.postman_collection.json` — all headers and signature generation are pre-configured.
+## Testing Interactions (Postman & Webhook.site)
+
+Because of the full lifecycle capability, you can test everything synchronously and asynchronously.
+
+1. **Setup Webhook Callback Receiver**:
+   - Go to [Webhook.site](https://webhook.site/) and copy "Your unique URL"
+   - Modify the `PARTNER_CALLBACK_URL` under `notification-service` inside `docker-compose.yml`.
+   - Run `docker-compose up -d notification-service` to apply the changes.
+
+2. **Run the Create Account Request (Postman)**:
+   - Hit `POST http://localhost:8081/snap/v1/account-creation` and include the mandatory headers above.
+   - You will instantly see an asynchronous payload hit your Webhook.site!
+
+3. **Run the Transfer Request (Postman)**:
+   - Hit `POST http://localhost:8082/snap/v1/transfer-intrabank` and provide two valid Account Numbers.
+   - The transaction service will interface with Account via gRPC. Once finished, you will immediately see a payload hit Webhook.site indicating `snap.transfer.completed`.
 
 ## Kafka Events
 
-Events are published after successful operations:
+Topics are configured to auto-create and persist robustly.
 
-| Topic | Trigger | Key |
-|---|---|---|
-| `snap.account.created` | Account creation | accountNo |
-| `snap.transfer.completed` | Transfer success | referenceNo |
+| Topic | Publisher | Consumer | Trigger |
+|---|---|---|---|
+| `snap.account.created` | Account Service | Notification Service | Account creation |
+| `snap.transfer.completed` | Transaction Service | Notification Service | Successful intra-bank transfer |
 
-Browse messages at **Kafka UI**: http://localhost:8090
+Browse messages dynamically via **Kafka UI**: http://localhost:8090
 
-## Deep Tracing
+## Observability & Distributed Tracing
 
-Every request produces a full trace visible in **Grafana Tempo**:
+As the platform is now a distributed microservices network, **OpenTelemetry** propagates context continuously. Every HTTP request sent generates a Distributed Trace linking the `Transaction Service` directly to the `Account Service`'s gRPC invocation and the subsequent `Notification Service` execution!
 
-```
-HTTP POST /snap/v1/transfer-intrabank
-  └── middleware.SNAPHeaderValidation
-        └── handler.Transfer
-              └── service.Account.Transfer
-                    ├── repository.Transaction.GetByPartnerReferenceNo
-                    ├── repository.Account.GetByAccountNo (source)
-                    ├── repository.Account.GetByAccountNo (beneficiary)
-                    ├── repository.Transaction.Create
-                    ├── repository.Account.UpdateBalance (debit)
-                    ├── repository.Account.UpdateBalance (credit)
-                    └── kafka.Publish (snap.transfer.completed)
-```
-
-## Environment Variables
-
-| Variable | Default | Description |
-|---|---|---|
-| `SNAP_DB_HOST` | localhost | PostgreSQL host |
-| `SNAP_DB_PORT` | 5433 | PostgreSQL port |
-| `SNAP_DB_USER` | postgres | Database user |
-| `SNAP_DB_PASSWORD` | postgres | Database password |
-| `SNAP_DB_NAME` | snap_bank | Database name |
-| `SNAP_SERVER_PORT` | 8081 | API server port |
-| `SNAP_SECRET_KEY` | my-snap-secret-key-for-signature | HMAC signing key |
-| `REDIS_HOST` | localhost | Redis host |
-| `REDIS_PORT` | 6381 | Redis port |
-| `KAFKA_BROKER` | localhost:9092 | Kafka broker address |
-| `OTEL_COLLECTOR_HOST` | localhost | OpenTelemetry Collector host |
+To view trace graphs and see bottlenecks visually:
+1. Open **Grafana**: http://localhost:3001
+2. Go to **Explore** -> **Tempo**
+3. Browse generated span traces for seamless cross-service insights.

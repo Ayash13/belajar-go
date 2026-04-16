@@ -1,25 +1,31 @@
 services:
-  app:
+  # ==========================================
+  # SERVICES
+  # ==========================================
+  account-service:
+    container_name: service_account_service
     build:
-      context: ..
-      dockerfile: project_bank_api/Dockerfile
+      context: .
+      dockerfile: account-service/Dockerfile
     ports:
       - "8081:8081"
+      - "50051:50051"
     environment:
-      - SNAP_DB_HOST=db
-      - SNAP_DB_PORT=5432
-      - SNAP_DB_USER=${SNAP_DB_USER:-postgres}
-      - SNAP_DB_PASSWORD=${SNAP_DB_PASSWORD:-postgres}
-      - SNAP_DB_NAME=${SNAP_DB_NAME:-snap_bank}
-      - SNAP_DB_SSLMODE=disable
-      - SNAP_SERVER_PORT=8081
-      - SNAP_SECRET_KEY=${SNAP_SECRET_KEY:-my-snap-secret-key-for-signature}
+      - DB_HOST=account-db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=account_db
+      - DB_SSLMODE=disable
+      - SERVER_PORT=8081
+      - GRPC_PORT=50051
+      - SNAP_SECRET_KEY=my-snap-secret-key-for-signature
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - OTEL_COLLECTOR_HOST=otel-collector
       - KAFKA_BROKER=kafka:29092
     depends_on:
-      db:
+      account-db:
         condition: service_healthy
       redis:
         condition: service_started
@@ -28,28 +34,130 @@ services:
       otel-collector:
         condition: service_started
 
-  db:
+  transaction-service:
+    container_name: service_transaction_service
+    build:
+      context: .
+      dockerfile: transaction-service/Dockerfile
+    ports:
+      - "8082:8082"
+    environment:
+      - DB_HOST=transaction-db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=transaction_db
+      - DB_SSLMODE=disable
+      - SERVER_PORT=8082
+      - ACCOUNT_GRPC_ADDR=account-service:50051
+      - SNAP_SECRET_KEY=my-snap-secret-key-for-signature
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - OTEL_COLLECTOR_HOST=otel-collector
+      - KAFKA_BROKER=kafka:29092
+    depends_on:
+      transaction-db:
+        condition: service_healthy
+      account-service:
+        condition: service_started
+      redis:
+        condition: service_started
+      kafka:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+
+  notification-service:
+    container_name: service_notification_service
+    build:
+      context: .
+      dockerfile: notification-service/Dockerfile
+    ports:
+      - "8083:8083"
+    environment:
+      - DB_HOST=notification-db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=notification_db
+      - DB_SSLMODE=disable
+      - SERVER_PORT=8083
+      - PARTNER_CALLBACK_URL=https://webhook.site/0f63ac8d-4b0f-4ff2-87f3-7094b4c1cc31
+      - OTEL_COLLECTOR_HOST=otel-collector
+      - KAFKA_BROKER=kafka:29092
+    depends_on:
+      notification-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+
+  # ==========================================
+  # DATABASES
+  # ==========================================
+  account-db:
+    container_name: db_account_db
     image: postgres:15-alpine
     environment:
-      - POSTGRES_USER=${SNAP_DB_USER:-postgres}
-      - POSTGRES_PASSWORD=${SNAP_DB_PASSWORD:-postgres}
-      - POSTGRES_DB=${SNAP_DB_NAME:-snap_bank}
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=account_db
     ports:
       - "5433:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d snap_bank"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d account_db"]
       interval: 5s
       timeout: 5s
       retries: 5
     volumes:
-      - snap_pgdata:/var/lib/postgresql/data
+      - account_pgdata:/var/lib/postgresql/data
+
+  transaction-db:
+    container_name: db_transaction_db
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=transaction_db
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d transaction_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - transaction_pgdata:/var/lib/postgresql/data
+
+  notification-db:
+    container_name: db_notification_db
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=notification_db
+    ports:
+      - "5435:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d notification_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - notification_pgdata:/var/lib/postgresql/data
 
   redis:
+    container_name: db_redis
     image: redis:7-alpine
     ports:
       - "6381:6379"
 
+  # ==========================================
+  # OTHERS
+  # ==========================================
   kafka:
+    container_name: infra_kafka
     image: confluentinc/cp-kafka:7.6.0
     ports:
       - "9092:9092"
@@ -82,6 +190,7 @@ services:
       start_period: 30s
 
   kafka-ui:
+    container_name: infra_kafka_ui
     image: provectuslabs/kafka-ui:latest
     ports:
       - "8090:8080"
@@ -93,6 +202,7 @@ services:
         condition: service_healthy
 
   otel-collector:
+    container_name: obs_otel_collector
     image: otel/opentelemetry-collector-contrib:0.96.0
     command: ["--config=/etc/otel-collector.yaml"]
     volumes:
@@ -107,12 +217,14 @@ services:
       - loki
 
   loki:
+    container_name: obs_loki
     image: grafana/loki:latest
     ports:
       - "3101:3100"
     command: -config.file=/etc/loki/local-config.yaml
 
   promtail:
+    container_name: obs_promtail
     image: grafana/promtail:latest
     volumes:
       - ./promtail.yaml:/etc/promtail/config.yaml
@@ -122,6 +234,7 @@ services:
       - loki
 
   tempo:
+    container_name: obs_tempo
     image: grafana/tempo:2.3.0
     ports:
       - "3201:3200"
@@ -132,6 +245,7 @@ services:
       - ./tempo.yaml:/etc/tempo.yaml
 
   prometheus:
+    container_name: obs_prometheus
     image: prom/prometheus:latest
     ports:
       - "9091:9090"
@@ -139,6 +253,7 @@ services:
       - ./prometheus.yaml:/etc/prometheus/prometheus.yml
 
   grafana:
+    container_name: obs_grafana
     image: grafana/grafana:latest
     ports:
       - "3001:3000"
@@ -154,7 +269,7 @@ services:
       - loki
 
 volumes:
-  snap_pgdata:
-    name: snap_pgdata
-  kafka_data:
-    name: kafka_data
+  account_pgdata: {}
+  transaction_pgdata: {}
+  notification_pgdata: {}
+  kafka_data: {}
